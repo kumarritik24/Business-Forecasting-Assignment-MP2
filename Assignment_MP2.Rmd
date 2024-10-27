@@ -1,0 +1,211 @@
+---
+title: "Assignment_MP2"
+author: "Ritik Kumar"
+date: "2024-10-25"
+output: html_document
+---
+
+## Forecast the Insurance Dataset
+##### Importing the dataset
+```{r}
+library(fpp)
+library(fpp2)
+library(ggplot2)
+library(forecast)
+library(TTR)
+library(readr)
+
+Insurance <- read_csv("C:/Users/malho/Downloads/insurance.csv")
+View(Insurance)
+```
+
+## 1. Create Timeseries Plot and Inference
+##### Considering only Quotes column from January 2002 to April 2005
+```{r}
+insurance_ts <- ts(Insurance$Quotes, start =c(2002,1), end = c(2005, 4), frequency = 12)
+
+plot(insurance_ts, main = " Monthly Insurance quotations of a US Insurance Company", xlab = "Year", ylab = "Quotes")
+```
+
+* we start with plotting the time series for visualize and understand the data.
+
+##### Initial Oberversation 
+* We'll assume the data starts from January 2002 and goes monthly
+* The data shows lot of fluctuations and variations.
+* The plot shows that there is an increasing and decreasing trend in Insurance Quotations from January 2002 to March 2004
+* From March 2004 till April 2005, there has been a steady increasing trend in the Insurance quotations.
+* from Jan 2002 to April 2005, this data should be good enough to be considered for forecasting.
+* This column likely represents the number of insurance quotes or inquiries received.
+
+## 2. Verify how much history to include in your analysis.
+
+```{r}
+summary(insurance_ts)
+plot(insurance_ts, main = "Monthly Insurance quotations of a US Insurance Company")
+```
+
+* The summary function above gives the min, max, mean, median, 1st and 3rd Quarterly values of the times series.
+* After that we plot the graph to verify how much history to include in our analysis
+
+## 3. Hypothesize if the dataset has trend, seasonality, or both. 
+
+* This will we check after applying Acf and decomposition for finding trend or seasonality in the dataset
+
+##### 4. Verifying using ACF plot to check for seasonality or autocorrelation
+```{r}
+Acf(insurance_ts, main =" Acf Plot of Insurance Quotation")
+```
+
+##### 5. Verify using decomposition
+##### Decompose the time series to verify trend and seasonality
+```{r}
+decomp <- decompose(insurance_ts)
+plot(decomp)
+decomp$type
+```
+
+* The decomposition seems to be additive. 
+* Trend: Long-term movement in the data
+* Seasonal: Repeated cycles, usually yearly
+* Residual: Random fluctuations that remain after removing trend and seasonality
+* Because, with as trend increases, we see there is not a strong increase in the seasonality. The seasonality appears to be repeated cyclically.
+* Quotes time series display only weak seasonality.
+
+## 6. Chose an accuracy measure
+* We'll use Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE) for model evaluation. later
+
+## 7. Create a forecast model for the next 12 months. Include Naive, Average, Exponential Smoothing, HoltWinters, and Decomposition (both types). 
+
+## Naive model
+```{r}
+naive_forecast <- naive(insurance_ts, h=12)
+plot(naive_forecast)
+```
+
+##### Naive Method Summary
+* The naive model simply assumes the future will be exactly like the most recent value (no trend or seasonality).
+
+## Simple Moving Averages
+```{r}
+ma5_forecast <- ma(insurance_ts, order =5)
+ma9_forecast <- ma(insurance_ts, order =9)
+plot(insurance_ts, main ="Plot along with moving averages")
+lines(ma5_forecast, col ="Blue")
+lines(ma9_forecast, col ="Red")
+```
+
+##### Simple Moving Averages Observations
+* The average model assumes the future will be the same as the historical average.
+* From the plots, it is observed that the higher the order we consider, the smoother the moving average curve in the plot.
+* It can be seen that the red line above is the smoothest compared to blue line.
+* The Red line (order 9) gives the most real data compared to the other line.  * The higher order averages smoother the plot and do not give the actual values.
+
+## Exponential Smoothing Model (Simple Exponential Smoothing - SES)
+```{r}
+ses_forecast <- ses(insurance_ts, h=12)
+plot(ses_forecast)
+attributes(ses_forecast)
+```
+
+##### Exponential Smoothing Model Obervations
+* Exponential Smoothing gives more weight to recent observations, making it more responsive to changes.
+* From Jan 2002 to March 2004 there is observed to be fluctuated trend.After that there is an increasing trend in the data till April 2005. There is a small gap where no trend observed.So, this forecast may not be a right way to forecast.
+
+## Holt-Winters model - Captures both trend and seasonality.
+```{r}
+hw_model <- hw(insurance_ts)
+hw_forecast <- forecast(hw_model, h=12)
+plot(hw_forecast, main=" Holt-Winters Forecast")
+attributes(hw_forecast)
+hw_model$model
+```
+
+* Here, The Holt-Winters model considers both trend and seasonality, making it suitable for seasonal data.
+* This is because the seasonality isn't increasing with trend. This is an additive time series.
+
+##### Holt-Winters model Observations
+* Alpha = 0.9999 Alpha specifies the coefficient for the level smoothing in Holt winters.
+* Beta = 0.0272 Beta specifies the coefficient for the trend smoothing in Holt winters. 
+* Gamma = 1e-04 Gamma specifies the coefficient for the seasonal smoothing in Holt winters.
+* Values 1.0 means that the latest value has highest weight.
+* Initial states:
+    l = 13.4243 
+    b = -0.1468  
+    s = 0.236 0.0967 -1.2543 -0.5618 -0.6536 -0.1118
+           0.6199 0.8343 -1.2545 -0.4778 1.6549 0.8719
+* Sigma = 1.9646 Sigma defines the variance of the forecast values.
+
+## Decomposition-based forecast Model
+```{r}
+decomp_trend <- tslm(insurance_ts ~ trend + season)
+decomp_forecast <- forecast(decomp_trend, h=12)
+plot(decomp_forecast, main="Decomposition-Based Forecast")
+```
+
+## Decomposition (Additive)
+##### Perform additive decomposition Model
+```{r}
+add_decomp <- decompose(insurance_ts, type= "additive")
+plot(add_decomp)
+```
+
+* Decomposition splits the time series into trend, seasonal, random and observed components.
+
+## Decomposition (Multiplicative)
+##### Perform multiplicative decomposition MOdel
+```{r}
+mul_decomp <- decompose(insurance_ts, type ="multiplicative")
+plot(mul_decomp)
+```
+
+* Multiplicative decomposition is used when the seasonal component changes proportionally to the trend.
+
+## 8.Show model rank with accuracy measures (MAE and RMSE)
+```{r}
+naive_acc <- accuracy(naive_forecast)
+naive_acc
+ses_acc <- accuracy(ses_forecast)
+ses_acc
+hw_acc <- accuracy(hw_forecast)
+hw_acc
+decomp_acc <- accuracy(decomp_forecast)
+decomp_acc
+```
+
+# Create a summary of accuracy measures (MAE and RMSE)
+```{r}
+accuracy_summary <- data.frame(
+  Model = c("Naive","Exponential Smoothing", "Holt-Winters", "Decomposition"),
+  MAE = c(naive_acc[1, "MAE"], ses_acc[1, "MAE"], hw_acc[1, "MAE"], decomp_acc[1, "MAE"]),
+  RMSE = c(naive_acc[1, "RMSE"], ses_acc[1, "RMSE"], hw_acc[1, "RMSE"], decomp_acc[1, "RMSE"])
+)
+
+print(accuracy_summary)
+```
+
+* This table ranks the models based on their accuracy using MAE and RMSE. Lower values indicate better accuracy.
+
+## 9. Choose which models and how are you going to use them for Forecasting
+* Based on the accuracy measures, we would select the model with the lowest MAE and RMSE, typically the Holt-Winters or Exponential Smoothing model.
+
+##### Best & Worst Forecasts
+
+* To start with, there is nothing like best or worst forecast.
+* Considering the accuracy data above, HoltWinters forecast seems to fit the time series the best as it has the least error values.
+* And decomposition forecast seems to be the worst as it has the largest ME and RMSE values.
+
+## 10. Provide the forecast for the next 12 months (point and range) and explain why you feel confident with these forecasts
+```{r}
+final_forecast <- forecast(hw_model, h=12)
+print(final_forecast)
+plot(final_forecast, main="Final Forecast for the Next 12 Months")
+```
+
+* This is the final forecast, providing point estimates for the next 12 months along with confidence intervals.
+
+## Conclusion 
+* The data seemed to have strong trend and but weak seasonality initially and we checked the same with Acf and confirmed it.
+* Based on the forecasting models like naive, Exponential Smoothing Model, and Holt Winters, we can see that Holt-winters forecast provides to be the better forecasting method in this case.
+* This is because the forecast fits perfectly and also the error values are quiet low for Holt Winters forecast.
+* This shows that our hypothesis is correct based on the accuracy of all the models.
+* Based on the analysis and forecast, the time series will same steady over the next year and the next 2 years.
